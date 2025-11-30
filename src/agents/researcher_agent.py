@@ -7,6 +7,26 @@ from src.config import BASE_URL, API_KEY, MODEL_NAME
 from src.state import State, LiteraturePlan, LiteratureSummary
 from src.tools.arxiv_tool import search_arxiv, author_stats
 
+# --- Вспомогательная функция для извлечения всех JSON-объектов из строки ---
+def find_json_objects(s):
+    """Finds all JSON objects in a string using json.JSONDecoder.raw_decode."""
+    s = s.strip()  # Убираем ведущие/концевые пробелы
+    json_objects = []
+    decoder = json.JSONDecoder()
+    idx = 0
+    while idx < len(s):
+        idx = s.find('{', idx)  # Ищем начало JSON-объекта
+        if idx == -1:
+            break  # Больше нет '{'
+        try:
+            obj, end_idx = decoder.raw_decode(s[idx:])
+            json_objects.append(obj)
+            idx += end_idx  # Переходим к следующему потенциальному объекту
+        except json.JSONDecodeError:
+            idx += 1  # Если не JSON, идем дальше
+    return json_objects
+# --- Конец вспомогательной функции ---
+
 llm = ChatOpenAI(
     base_url=BASE_URL,
     api_key=API_KEY,
@@ -25,14 +45,13 @@ def call_research_planner(state: State):
         content = response.content
         print(f"🔍 Planner LLM response: {content}") # Отладочный вывод
         if isinstance(content, str):
-            # Найдём все JSON-объекты в строке
-            json_matches = re.findall(r'\{(?:[^{}]|(?R))*\}', content, re.DOTALL)
+            # Используем новую функцию для поиска JSON
+            json_matches = find_json_objects(content)
             if json_matches:
                 # Берём *последний* найденный JSON, предполагая, что это правильный ответ
-                json_str = json_matches[-1]
-                print(f"🔍 Extracted JSON string: {json_str}") # Отладочный вывод
-                plan_json = json.loads(json_str)
-                plan = LiteraturePlan(**plan_json)
+                json_obj = json_matches[-1]
+                print(f"🔍 Extracted JSON object: {json_obj}") # Отладочный вывод
+                plan = LiteraturePlan(**json_obj)
                 print(f"✅ Parsed plan: {plan}")
             else:
                 raise ValueError("No JSON found in response content")
