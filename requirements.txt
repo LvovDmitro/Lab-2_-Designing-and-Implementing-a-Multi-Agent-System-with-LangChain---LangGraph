@@ -1,0 +1,8 @@
+langgraph
+langchain-openai
+arxiv
+tenacity
+pydantic
+python-dotenv
+openai
+graphviz # Для визуализации графа (опционально)
