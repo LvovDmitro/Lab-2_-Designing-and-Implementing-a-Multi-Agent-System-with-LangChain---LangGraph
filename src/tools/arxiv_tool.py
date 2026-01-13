@@ -26,5 +26,5 @@ def search_arxiv(keywords: List[str], min_year: int) -> List[ArxivResult]:
 
 def author_stats(authors: List[str]) -> List[AuthorStats]:
     print(f"🔍 Fetching author stats for {len(authors)} authors")
-    # Заглушка: в реальности это был бы вызов API или БД
+    # Mock implementation: returns placeholder data
     return [AuthorStats(h_index=10, total_papers=50) for _ in authors]

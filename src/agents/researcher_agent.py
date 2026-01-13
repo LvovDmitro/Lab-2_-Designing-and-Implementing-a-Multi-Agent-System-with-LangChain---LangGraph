@@ -7,25 +7,23 @@ from src.config import BASE_URL, API_KEY, MODEL_NAME
 from src.state import State, LiteraturePlan, LiteratureSummary
 from src.tools.arxiv_tool import search_arxiv, author_stats
 
-# --- Вспомогательная функция для извлечения всех JSON-объектов из строки ---
 def find_json_objects(s):
     """Finds all JSON objects in a string using json.JSONDecoder.raw_decode."""
-    s = s.strip()  # Убираем ведущие/концевые пробелы
+    s = s.strip()
     json_objects = []
     decoder = json.JSONDecoder()
     idx = 0
     while idx < len(s):
-        idx = s.find('{', idx)  # Ищем начало JSON-объекта
+        idx = s.find('{', idx)
         if idx == -1:
-            break  # Больше нет '{'
+            break
         try:
             obj, end_idx = decoder.raw_decode(s[idx:])
             json_objects.append(obj)
-            idx += end_idx  # Переходим к следующему потенциальному объекту
+            idx += end_idx
         except json.JSONDecodeError:
-            idx += 1  # Если не JSON, идем дальше
+            idx += 1
     return json_objects
-# --- Конец вспомогательной функции ---
 
 llm = ChatOpenAI(
     base_url=BASE_URL,
@@ -43,14 +41,12 @@ def call_research_planner(state: State):
     response = llm.invoke([HumanMessage(content=planner_prompt.format_messages(query=state["query"])[0].content)])
     try:
         content = response.content
-        print(f"🔍 Planner LLM response: {content}") # Отладочный вывод
+        print(f"🔍 Planner LLM response: {content}")
         if isinstance(content, str):
-            # Используем новую функцию для поиска JSON
             json_matches = find_json_objects(content)
             if json_matches:
-                # Берём *последний* найденный JSON, предполагая, что это правильный ответ
                 json_obj = json_matches[-1]
-                print(f"🔍 Extracted JSON object: {json_obj}") # Отладочный вывод
+                print(f"🔍 Extracted JSON object: {json_obj}")
                 plan = LiteraturePlan(**json_obj)
                 print(f"✅ Parsed plan: {plan}")
             else:
@@ -81,14 +77,18 @@ def call_research_writer(state: State):
     print("✍️ Calling Researcher Agent (Writer)...")
     papers = state.get("papers", [])
     stats = state.get("author_stats", [])
+    history_context = "\n".join([f"{msg['role']}: {msg['content'][:100]}..." for msg in state.get("chat_history", [])[-2:]])
+    
     writer_prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a literature review writer. Summarize the papers and author stats. Respond in JSON format: {{\"main_trends\": \"\", \"notable_papers\": [{{\"author\": \"\", \"year\": 0, \"title\": \"\", \"summary\": \"\"}}], \"open_questions\": \"\"}}"),
-        ("human", "Papers: {papers}, Author stats: {stats}")
+        ("system", "You are a literature review writer. Summarize the papers and author stats. Consider the conversation history for context. Respond in JSON format: {{\"main_trends\": \"\", \"notable_papers\": [{{\"author\": \"\", \"year\": 0, \"title\": \"\", \"summary\": \"\"}}], \"open_questions\": \"\"}}"),
+        ("human", "Previous context:\n{history}\n\nPapers: {papers}\nAuthor stats: {stats}\n\nWrite a comprehensive summary.")
     ])
-    response = llm.invoke([HumanMessage(content=writer_prompt.format_messages(
+    formatted_messages = writer_prompt.format_messages(
+        history=history_context if history_context else "No previous context",
         papers=papers,
         stats=stats
-    )[0].content)])
+    )
+    response = llm.invoke(formatted_messages)
     try:
         content = response.content
         if isinstance(content, str):

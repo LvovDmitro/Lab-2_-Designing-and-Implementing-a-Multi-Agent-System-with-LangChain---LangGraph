@@ -34,11 +34,13 @@ class LiteratureSummary(BaseModel):
 
 class State(TypedDict):
     query: str
-    category: Optional[str] # Output from Router
+    category: Optional[str]
     plan: Optional[LiteraturePlan]
     papers: Optional[List[ArxivResult]]
     author_stats: Optional[List[AuthorStats]]
     summary: Optional[LiteratureSummary]
     code_response: Optional[str]
-    chat_history: List[Dict[str, str]] # Memory
-    user_profile: Dict[str, Any] # Memory
+    reviewer_feedback: Optional[str]
+    final_answer: Optional[str]
+    chat_history: List[Dict[str, str]]
+    user_profile: Dict[str, Any]
